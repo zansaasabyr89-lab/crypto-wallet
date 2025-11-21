@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Blockchain Wallet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- QRCode.js (для генерации QR) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg: #f2f2f2; --text: #1a1a1a; --muted: #555; --card: #ffffff;
+            --primary: #4d4d4d; --primary-hover: #3a3a3a; --border: #bbb;
+            --shadow: rgba(0,0,0,0.15); --nav-bg: #1a1a1a; --nav-text: #ffffff; --link: #ccc;
+            --success: #00d28a; --error: #ff5c7a; --warn: #ffc53d;
+        }
+        [data-theme="dark"] {
+            --bg: #111; --text: #eaeaea; --muted: #bbb; --card: #1c1c1c;
+            --primary: #6c63ff; --primary-hover: #564dff; --border: #3a3a3a;
+            --shadow: rgba(0,0,0,0.35); --nav-bg: #0d0d0d; --nav-text: #ffffff; --link: #9f9f9f;
+        }
+        [data-theme="ultra"] {
+            --bg: #0b1021; --text: #e7f0ff; --muted: #9db3d4; --card: #111a33;
+            --primary: #00c2ff; --primary-hover: #00a6db; --border: #1f2e4a;
+            --shadow: rgba(0,194,255,0.25); --nav-bg: #09122c; --nav-text: #dff3ff; --link: #9db3d4;
+        }
+        * { box-sizing: border-box; }
+        body { margin:0; font-family: Inter, Arial, sans-serif; background: var(--bg); color: var(--text); }
+        .navbar { background: var(--nav-bg); padding: 12px 20px; display:flex; align-items:center; color:var(--nav-text); position:sticky; top:0; z-index:2; }
+        .navbar-title { font-size:18px; font-weight:700; margin-right:20px; letter-spacing:0.5px; }
+        .nav-links { display:flex; gap:8px; flex-wrap:wrap; }
+        .nav-links a { color: var(--link); text-decoration:none; padding:8px 12px; border-radius:6px; border:1px solid transparent; cursor:pointer; user-select:none; }
+        .nav-links a.active { border: 1px solid var(--border); color: var(--nav-text); }
+        .navbar-right { margin-left:auto; display:flex; gap:12px; align-items:center; }
+        .clock { font-variant-numeric: tabular-nums; opacity:0.85; }
+        .theme-select, .chip { background: transparent; color: var(--nav-text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 14px; }
+        .container { padding: 24px; max-width: 1100px; margin: 0 auto; }
+        h2 { margin-top:0; font-weight:800; letter-spacing:0.3px; }
+        button { margin-top: 12px; padding: 10px 16px; background: var(--primary); color:white; border:none; border-radius:6px; cursor:pointer; }
+        button:hover { background: var(--primary-hover); }
+        .page { display:none; }
+        .card { background: var(--card); padding: 18px; border-radius: 10px; box-shadow: 0 6px 20px var(--shadow); border: 1px solid var(--border); }
+        .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        input, textarea, select { width:100%; padding:10px; margin-top:8px; border:1px solid var(--border); border-radius:6px; background:transparent; color: var(--text); }
+        label { color: var(--muted); font-weight:600; }
+        .progress { height:20px; width:100%; background:#2a2a2a33; border-radius:6px; margin-top:14px; border:1px solid var(--border); }
+        .progress-bar { height:100%; width:0%; background: var(--primary); border-radius:6px; transition: width 0.25s ease; }
+        .muted { color: var(--muted); }
+        .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+        .table { width:100%; border-collapse:collapse; margin-top:12px; }
+        .table th, .table td { border:1px solid var(--border); padding:8px 10px; text-align:left; }
+        .success { color: var(--success); } .error { color: var(--error); } .warn { color: var(--warn); }
+        .spacer { height:10px; }
+        .badge { display:inline-block; border:1px solid var(--border); border-radius:999px; padding:4px 8px; font-size:12px; }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="navbar-title">BLOCKCHAIN WALLET</div>
+    <div class="nav-links">
+        <a class="active" onclick="openPage('overview', event)">Обзор</a>
+        <a onclick="openPage('auth', event)">Регистрация/Вход</a>
+        <a onclick="openPage('wallet', event)">Мой кошелёк</a>
+        <a onclick="openPage('transaction', event)">Новая транзакция</a>
+        <a onclick="openPage('mining', event)">Майнинг</a>
+        <a onclick="openPage('users', event)">Пользователи</a>
+        <a onclick="openPage('history', event)">История</a>
+        <a onclick="openPage('admin', event)">Админ</a>
+        <a onclick="openPage('backup', event)">Резерв</a>
+    </div>
+    <div class="navbar-right">
+        <select class="theme-select" id="themeSelect">
+            <option value="dark">Тёмная</option>
+            <option value="light">Светлая</option>
+            <option value="ultra">Ультра</option>
+        </select>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="chip" id="currentUserChip">Гость</div>
+    </div>
+</div>
+
+<!-- Обзор -->
+<div id="overview" class="container page" style="display:block;">
+    <h2>Обзор рынка</h2>
+    <div class="grid">
+        <div class="card">
+            <div id="rates" style="font-size:18px; line-height:1.8;">Загрузка курса...</div>
+            <div class="row">
+                <button onclick="loadRates()">Обновить курс</button>
+                <span class="muted">Источник: CoinGecko</span>
+            </div>
+        </div>
+        <div class="card">
+            <strong>Советы</strong>
+            <ul>
+                <li><b>Проверка получателя:</b> Введите телефон — увидите имя формата Имя.Б перед отправкой.</li>
+                <li><b>Безопасность:</b> Это демо: данные хранятся локально в вашем браузере.</li>
+                <li><b>Майнинг:</b> Начисляет награду текущему пользователю.</li>
+            </ul>
+            <div class="spacer"></div>
+            <span class="muted">Локация: Алгабас, Алматы. Время — справа вверху.</span>
+        </div>
+    </div>
+    <button onclick="openPage('auth')">Перейти к регистрации</button>
+</div>
+
+<!-- Регистрация/Вход -->
+<div id="auth" class="container page">
+    <h2>Регистрация и вход</h2>
+    <div class="grid">
+        <div class="card">
+            <strong>Регистрация нового пользователя</strong>
+            <label>Имя</label>
+            <input type="text" id="regFirstName" placeholder="Адил">
+            <label>Фамилия</label>
+            <input type="text" id="regLastName" placeholder="Беков">
+            <label>Телефон (ID) — Казахстан</label>
+            <input type="text" id="regPhone" placeholder="+7 707 608 1340" oninput="maskPhone(this)">
+            <label>PIN (4–6 цифр)</label>
+            <input type="password" id="regPin" placeholder="1234">
+            <div class="row">
+                <label>Роль</label>
+                <select id="regRole">
+                    <option value="user">Пользователь</option>
+                    <option value="admin">Админ</option>
+                </select>
+            </div>
+            <button onclick="register()">Зарегистрироваться</button>
+            <p id="regMsg" class="muted"></p>
+        </div>
+        <div class="card">
+            <strong>Вход</strong>
+            <label>Телефон (ID)</label>
+            <input type="text" id="loginPhone" placeholder="+7 707 608 1340" oninput="maskPhone(this)">
+            <label>PIN</label>
+            <input type="password" id="loginPin" placeholder="1234">
+            <button onclick="login()">Войти</button>
+            <p id="loginMsg" class="muted"></p>
+        </div>
+        <div class="card">
+            <strong>Выход</strong>
+            <p class="muted">Сброс текущей сессии.</p>
+            <button onclick="logout()">Выйти</button>
+        </div>
+    </div>
+</div>
+
+<!-- Кошелёк -->
+<div id="wallet" class="container page">
+    <h2>Мой кошелёк</h2>
+    <div class="grid">
+        <div class="card">
+            <strong>Ваш баланс:</strong><br>
+            <span id="balance" style="font-size:24px;">—</span><br><br>
+            <strong>Адрес кошелька:</strong><br>
+            <textarea id="walletAddress" cols="30" rows="2" readonly>—</textarea>
+            <div class="row">
+                <button onclick="generateNewAddress()">Сгенерировать новый адрес</button>
+                <button onclick="generateQR('address')">QR адреса</button>
+                <button onclick="generateQR('id')">QR ID</button>
+            </div>
+            <div id="qrcode" style="margin-top:10px;"></div>
+        </div>
+        <div class="card">
+            <strong>Профиль</strong>
+            <p id="profileInfo" class="muted">Войдите, чтобы увидеть профиль.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Новая транзакция -->
+<div id="transaction" class="container page">
+    <h2>Новая транзакция</h2>
+    <div class="grid">
+        <div class="card">
+            <label>Телефон получателя (ID)</label>
+            <input type="text" id="toPhone" placeholder="+7 707 608 1340" oninput="maskPhone(this); resolveRecipientName()">
+            <p id="recipientName" class="muted">Получатель: —</p>
+
+            <label>Сумма (BTC)</label>
+            <input type="number" id="amount" step="0.0001" placeholder="0.0010">
+
+            <label>Комиссия сети (BTC)</label>
+            <input type="number" id="fee" step="0.0001" placeholder="0.0001" value="0.0001">
+
+            <label>Комментарий (необязательно)</label>
+            <input type="text" id="note" placeholder="За кофе">
+
+            <button onclick="sendTransaction()">Отправить</button>
+            <p id="txMessage" style="margin-top:10px; font-weight:bold;"></p>
+        </div>
+        <div class="card">
+            <strong>Пояснение</strong>
+            <ul>
+                <li><b>Идентификатор:</b> Телефон — уникальный ID пользователя.</li>
+                <li><b>Имя‑автоподсказка:</b> Формат Имя.Б (первая буква фамилии) при вводе телефона.</li>
+                <li><b>Комиссия:</b> списывается с отправителя как отдельная запись в истории.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Майнинг -->
+<div id="mining" class="container page">
+    <h2>Майнинг</h2>
+    <div class="grid">
+        <div class="card">
+            <button onclick="startMining()">Начать майнинг</button>
+            <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+            <p id="miningStatus" style="margin-top:15px; font-weight:bold;"></p>
+            <p class="muted">Награда за блок: +0.0003 BTC начисляется текущему пользователю.</p>
+        </div>
+        <div class="card">
+            <strong>Статус пользователя</strong>
+            <p id="miningUser" class="muted">Войдите, чтобы майнить.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Пользователи -->
+<div id="users" class="container page">
+    <h2>Пользователи</h2>
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Телефон (ID)</th>
+                    <th>Имя</th>
+                    <th>Фамилия</th>
+                    <th>Баланс (BTC)</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody id="usersTable"></tbody>
+        </table>
+        <div class="row">
+            <button onclick="refreshUsers()">Обновить список</button>
+            <span class="muted">Данные из вашего браузера</span>
+        </div>
+    </div>
+</div>
+
+<!-- История -->
+<div id="history" class="container page">
+    <h2>История транзакций</h2>
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Дата/время</th>
+                    <th>Тип</th>
+                    <th>Сумма (BTC)</th>
+                    <th>Сторона</th>
+                    <th>Комментарий</th>
+                </tr>
+            </thead>
+            <tbody id="historyTable"></tbody>
+        </table>
+        <div class="row">
+            <button onclick="refreshHistory()">Обновить историю</button>
+            <span class="muted">Показывается история текущего пользователя</span>
+        </div>
+    </div>
+</div>
+
+<!-- Админ -->
+<div id="admin" class="container page">
+    <h2>Админ‑панель</h2>
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Телефон</th>
+                    <th>Имя</th>
+                    <th>История</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="adminTable"></tbody>
+        </table>
+        <div class="row">
+            <button onclick="refreshAdmin()">Обновить</button>
+            <span class="muted">Админ видит всех пользователей и может блокировать.</span>
+        </div>
+    </div>
+</div>
+
+<!-- Резервное копирование -->
+<div id="backup" class="container page">
+    <h2>Резервное копирование</h2>
+    <div class="grid">
+        <div class="card">
+            <strong>Экспорт</strong>
+            <p class="muted">Сохраняет всех пользователей и текущую сессию в JSON.</p>
+            <button onclick="exportData()">Экспортировать JSON</button>
+        </div>
+        <div class="card">
+            <strong>Импорт</strong>
+            <p class="muted">Загрузите ранее сохранённый JSON, чтобы восстановить.</p>
+            <input type="file" id="importFile" accept="application/json" onchange="importData(event)">
+        </div>
+    </div>
+</div>
+
+<script>
+/* Константы и утилиты */
+const LS_USERS = 'bw_users';
+const LS_CURRENT = 'bw_current_user';
+const REWARD = 0.0003;
+const START_BALANCE = 0.125;
+
+function nowISO() { return new Date().toISOString(); }
+function fmtBTC(n) { return (Number(n).toFixed(8) + ' BTC'); }
+function normalizePhoneFromMasked(masked) {
+    // Получаем только цифры; допускаем +7 и 8 в начале, нормализуем к 870... формату (11 цифр)
+    let digits = String(masked || '').replace(/\D/g, '');
+    if (digits.startsWith('7')) digits = '8' + digits.slice(1); // +7 -> 8
+    if (!digits.startsWith('8')) digits = '8' + digits; // гарантия 8 в начале
+    return digits.slice(0,11);
+}
+function getUsers() { return JSON.parse(localStorage.getItem(LS_USERS) || '[]'); }
+function setUsers(users) { localStorage.setItem(LS_USERS, JSON.stringify(users)); }
+function getCurrentUserPhone() { return localStorage.getItem(LS_CURRENT) || null; }
+function setCurrentUserPhone(phone) { phone ? localStorage.setItem(LS_CURRENT, phone) : localStorage.removeItem(LS_CURRENT); }
+function findUserByPhone(phone) { phone = normalizePhoneFromMasked(phone); return getUsers().find(u => u.phone === phone) || null; }
+function maskNameShort(user) {
+    if (!user) return '—';
+    const first = user.firstName?.trim() || '';
+    const last = user.lastName?.trim() || '';
+    return first ? `${first}.${last ? last[0].toUpperCase() : ''}` : '—';
+}
+function genAddress() {
+    const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    let addr = '1';
+    for (let i = 0; i < 33; i++) addr += chars[Math.floor(Math.random() * chars.length)];
+    return addr;
+}
+
+/* Маска телефона (Казахстан +7 XXX XXX XX XX) */
+function maskPhone(input) {
+    let val = input.value.replace(/\D/g, '');
+    // Приводим 8XXXXXXXXXX и 7XXXXXXXXXX к единому виду маски
+    if (val.startsWith('8')) val = '7' + val.slice(1);
+    if (!val.startsWith('7')) val = '7' + val;
+    let res = '+7';
+    if (val.length > 1) res += ' ' + val.slice(1,4);
+    if (val.length > 4) res += ' ' + val.slice(4,7);
+    if (val.length > 7) res += ' ' + val.slice(7,9);
+    if (val.length > 9) res += ' ' + val.slice(9,11);
+    input.value = res;
+}
+
+/* Тема и часы */
+const themeSelect = document.getElementById('themeSelect');
+themeSelect.addEventListener('change', () => {
+    document.documentElement.setAttribute('data-theme', themeSelect.value);
+    localStorage.setItem('bw_theme', themeSelect.value);
+});
+(function initTheme() {
+    const t = localStorage.getItem('bw_theme') || 'dark';
+    themeSelect.value = t; document.documentElement.setAttribute('data-theme', t);
+})();
+function startClock() {
+    const clock = document.getElementById('clock');
+    setInterval(() => { clock.textContent = new Date().toLocaleString('ru-RU', { hour12: false }); }, 1000);
+}
+startClock();
+
+/* Навигация */
+function openPage(page, evt) {
+    document.querySelectorAll(".page").forEach(p => p.style.display = "none");
+    document.getElementById(page).style.display = "block";
+    document.querySelectorAll(".nav-links a").forEach(a => a.classList.remove("active"));
+    if (evt && evt.target) evt.target.classList.add("active");
+    if (page === 'wallet') refreshWallet();
+    if (page === 'users') refreshUsers();
+    if (page === 'history') refreshHistory();
+    if (page === 'mining') refreshMiningUser();
+    if (page === 'admin') refreshAdmin();
+}
+
+/* Курсы BTC */
+function loadRates() {
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,rub")
+        .then(r => r.json())
+        .then(data => {
+            const usd = Number(data.bitcoin.usd).toLocaleString('en-US');
+            const rub = Number(data.bitcoin.rub).toLocaleString('ru-RU');
+            document.getElementById("rates").innerHTML =
+                `Текущие курсы:<br><br>BTC/USD: ${usd} USD<br>BTC/RUB: ${rub} ₽`;
+        })
+        .catch(() => { document.getElementById("rates").innerHTML = '<span class="error">Не удалось загрузить курс</span>'; });
+}
+loadRates();
+
+/* Аутентификация и роли */
+function register() {
+    const firstName = document.getElementById('regFirstName').value.trim();
+    const lastName = document.getElementById('regLastName').value.trim();
+    const phoneMasked = document.getElementById('regPhone').value;
+    const phone = normalizePhoneFromMasked(phoneMasked);
+    const pin = document.getElementById('regPin').value.trim();
+    const role = document.getElementById('regRole').value;
+    const msg = document.getElementById('regMsg');
+
+    if (!firstName || !lastName || !phone || !pin) { msg.innerHTML = '<span class="error">Заполните все поля</span>'; return; }
+    if (phone.length !== 11) { msg.innerHTML = '<span class="warn">Телефон должен содержать 11 цифр</span>'; return; }
+    if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) { msg.innerHTML = '<span class="warn">PIN должен быть 4–6 цифр</span>'; return; }
+
+    const users = getUsers();
+    if (users.find(u => u.phone === phone)) { msg.innerHTML = '<span class="error">Пользователь с таким телефоном уже есть</span>'; return; }
+
+    const user = { phone, firstName, lastName, pin, role, blocked:false, balance: START_BALANCE, address: genAddress(), history: [] };
+    users.push(user); setUsers(users); setCurrentUserPhone(phone); updateCurrentUserChip();
+    msg.innerHTML = '<span class="success">Регистрация успешна. Вы вошли.</span>'; refreshWallet();
+}
+function login() {
+    const phone = normalizePhoneFromMasked(document.getElementById('loginPhone').value);
+    const pin = document.getElementById('loginPin').value.trim();
+    const msg = document.getElementById('loginMsg');
+    const user = findUserByPhone(phone);
+    if (!user) { msg.innerHTML = '<span class="error">Пользователь не найден</span>'; return; }
+    if (user.blocked) { msg.innerHTML = '<span class="error">Пользователь заблокирован</span>'; return; }
+    if (user.pin !== pin) { msg.innerHTML = '<span class="error">Неверный PIN</span>'; return; }
+    setCurrentUserPhone(phone); updateCurrentUserChip(); msg.innerHTML = '<span class="success">Вход выполнен</span>'; refreshWallet();
+}
+function logout() { setCurrentUserPhone(null); updateCurrentUserChip(); document.getElementById('loginMsg').innerHTML = '<span class="muted">Вы вышли</span>'; refreshWallet(); }
+function updateCurrentUserChip() {
+    const chip = document.getElementById('currentUserChip');
+    const phone = getCurrentUserPhone();
+    if (!phone) { chip.textContent = 'Гость'; return; }
+    const user = findUserByPhone(phone);
+    chip.textContent = `${maskNameShort(user)} • ${phone} • ${user.role}`;
+}
+
+/* Кошелёк */
+function refreshWallet() {
+    const phone = getCurrentUserPhone();
+    const balEl = document.getElementById('balance');
+    const addrEl = document.getElementById('walletAddress');
+    const profEl = document.getElementById('profileInfo');
+
+    if (!phone) { balEl.textContent = '—'; addrEl.value = '—'; profEl.textContent = 'Гость. Войдите, чтобы увидеть профиль.'; return; }
+    const user = findUserByPhone(phone);
+    balEl.textContent = fmtBTC(user.balance);
+    addrEl.value = user.address;
+    profEl.innerHTML = `Имя: ${user.firstName}<br>Фамилия: ${user.lastName}<br>Телефон (ID): ${user.phone}<br>Адрес: ${user.address}<br>Роль: ${user.role}<br>Статус: ${user.blocked ? '<span class="error">Заблокирован</span>' : '<span class="success">Активен</span>'}`;
+}
+function generateNewAddress() {
+    const phone = getCurrentUserPhone(); if (!phone) { alert('Сначала войдите'); return; }
+    const users = getUsers(); const idx = users.findIndex(u => u.phone === phone);
+    users[idx].address = genAddress(); setUsers(users); refreshWallet();
+}
+function generateQR(type) {
+    const phone = getCurrentUserPhone(); if (!phone) { alert('Сначала войдите'); return; }
+    const user = findUserByPhone(phone);
+    const text = type === 'address' ? user.address : user.phone;
+    const box = document.getElementById('qrcode'); box.innerHTML = '';
+    new QRCode(box, { text, width: 160, height: 160 });
+}
+
+/* Список пользователей */
+function refreshUsers() {
+    const tbody = document.getElementById('usersTable'); const users = getUsers(); tbody.innerHTML = '';
+    users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.phone}</td><td>${u.firstName}</td><td>${u.lastName}</td><td>${Number(u.balance).toFixed(8)}</td><td>${u.role}</td><td>${u.blocked ? 'Заблокирован' : 'Активен'}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+/* Имя получателя */
+function resolveRecipientName() {
+    const phone = normalizePhoneFromMasked(document.getElementById('toPhone').value);
+    const p = document.getElementById('recipientName');
+    if (!phone || phone.length !== 11) { p.textContent = 'Получатель: —'; return; }
+    const user = findUserByPhone(phone);
+    if (!user) { p.innerHTML = '<span class="warn">Получатель не найден</span>'; return; }
+    p.textContent = `Получатель: ${maskNameShort(user)}`;
+}
+
+/* Транзакции с комиссиями и блокировкой */
+function sendTransaction() {
+    const fromPhone = getCurrentUserPhone();
+    const msgEl = document.getElementById('txMessage');
+    if (!fromPhone) { msgEl.innerHTML = '<span class="error">Сначала войдите</span>'; return; }
+    const sender = findUserByPhone(fromPhone);
+    if (sender.blocked) { msgEl.innerHTML = '<span class="error">Ваш аккаунт заблокирован</span>'; return; }
+
+    const toPhone = normalizePhoneFromMasked(document.getElementById('toPhone').value);
+    const amount = parseFloat(document.getElementById('amount').value);
+    const fee = parseFloat(document.getElementById('fee').value);
+    const note = document.getElementById('note').value.trim();
+
+    if (!toPhone || toPhone.length !== 11 || isNaN(amount) || amount <= 0 || isNaN(fee) || fee < 0) {
+        msgEl.innerHTML = '<span class="error">Проверьте телефон, сумму и комиссию</span>'; return;
+    }
+    if (toPhone === fromPhone) { msgEl.innerHTML = '<span class="warn">Нельзя отправить самому себе</span>'; return; }
+
+    const users = getUsers();
+    const fromIdx = users.findIndex(u => u.phone === fromPhone);
+    const toIdx = users.findIndex(u => u.phone === toPhone);
+    if (toIdx === -1) { msgEl.innerHTML = '<span class="error">Получатель не найден</span>'; return; }
+    const recipient = users[toIdx];
+    if (recipient.blocked) { msgEl.innerHTML = '<span class="error">Получатель заблокирован</span>'; return; }
+
+    if (users[fromIdx].balance < amount + fee) { msgEl.innerHTML = '<span class="error">Недостаточно средств</span>'; return; }
+
+    users[fromIdx].balance = Number(users[fromIdx].balance) - (amount + fee);
+    users[toIdx].balance = Number(users[toIdx].balance) + amount;
+
+    const time = nowISO();
+    users[fromIdx].history.push({ time, type:'OUT', amount, other: recipient.phone, note });
+    users[toIdx].history.push({ time, type:'IN', amount, other: users[fromIdx].phone, note });
+    if (fee > 0) users[fromIdx].history.push({ time, type:'FEE', amount: fee, other:'NETWORK', note:'Комиссия сети' });
+
+    setUsers(users);
+    msgEl.innerHTML = `<span class="success">Отправлено ${amount.toFixed(8)} BTC (комиссия ${fee.toFixed(8)}) → ${maskNameShort(recipient)}</span>`;
+    refreshWallet(); refreshHistory();
+}
+
+/* Майнинг */
+function startMining() {
+    const phone = getCurrentUserPhone(); const bar = document.getElementById("progressBar"); const status = document.getElementById("miningStatus");
+    if (!phone) { status.innerHTML = '<span class="error">Сначала войдите</span>'; return; }
+    const user = findUserByPhone(phone); if (user.blocked) { status.innerHTML = '<span class="error">Аккаунт заблокирован</span>'; return; }
+
+    bar.style.width = "0%"; status.innerHTML = "Майнинг начался..."; let progress = 0;
+    const timer = setInterval(() => {
+        progress += 5; bar.style.width = progress + "%";
+        if (progress >= 100) {
+            clearInterval(timer);
+            const users = getUsers(); const idx = users.findIndex(u => u.phone === phone);
+            users[idx].balance = Number(users[idx].balance) + REWARD;
+            users[idx].history.push({ time: nowISO(), type: 'MINING', amount: REWARD, other: 'BLOCK', note: 'Награда за блок' });
+            setUsers(users);
+            status.innerHTML = `Блок найден! +${REWARD.toFixed(8)} BTC начислено`;
+            refreshWallet(); refreshHistory();
+        }
+    }, 200);
+}
+function refreshMiningUser() {
+    const phone = getCurrentUserPhone(); const el = document.getElementById('miningUser');
+    if (!phone) { el.textContent = 'Гость. Войдите, чтобы майнить.'; return; }
+    const user = findUserByPhone(phone); el.innerHTML = `Майнит: ${maskNameShort(user)} (${phone}) • ${user.blocked ? '<span class="error">Заблокирован</span>' : '<span class="success">Активен</span>'}`;
+}
+
+/* История (текущий пользователь) */
+function refreshHistory() {
+    const phone = getCurrentUserPhone(); const tbody = document.getElementById('historyTable'); tbody.innerHTML = '';
+    if (!phone) return;
+    const user = findUserByPhone(phone);
+    const rows = (user.history || []).slice().reverse().map(h => {
+        const dateStr = new Date(h.time).toLocaleString('ru-RU', { hour12: false });
+        const typeLabel = h.type === 'IN' ? 'Входящая' : h.type === 'OUT' ? 'Исходящая' : h.type === 'MINING' ? 'Майнинг' : 'Комиссия';
+        const side = h.other || '—'; const note = h.note || '—';
+        return `<tr><td>${dateStr}</td><td>${typeLabel}</td><td>${Number(h.amount).toFixed(8)}</td><td>${side}</td><td>${note}</td></tr>`;
+    });
+    tbody.innerHTML = rows.join('');
+}
+
+/* Админ-панель */
+function isCurrentAdmin() {
+    const phone = getCurrentUserPhone(); if (!phone) return false;
+    const user = findUserByPhone(phone); return user?.role === 'admin';
+}
+function refreshAdmin() {
+    const tbody = document.getElementById('adminTable'); tbody.innerHTML = '';
+    if (!isCurrentAdmin()) {
+        tbody.innerHTML = `<tr><td colspan="6"><span class="error">Только админ может видеть эту страницу</span></td></tr>`;
+        return;
+    }
+    getUsers().forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${u.phone}</td>
+            <td>${u.firstName} ${u.lastName}</td>
+            <td>${(u.history||[]).length} записей</td>
+            <td>${u.role}</td>
+            <td>${u.blocked ? '<span class="error">Заблокирован</span>' : '<span class="success">Активен</span>'}</td>
+            <td>
+                <button onclick="toggleBlock('${u.phone}', true)">Блокировать</button>
+                <button onclick="toggleBlock('${u.phone}', false)">Разблокировать</button>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+}
+function toggleBlock(phone, block) {
+    if (!isCurrentAdmin()) { alert('Недостаточно прав'); return; }
+    const users = getUsers(); const idx = users.findIndex(u => u.phone === phone);
+    if (idx > -1) {
+        users[idx].blocked = !!block; setUsers(users); refreshAdmin();
+        alert(block ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
+    }
+}
+
+/* Резервное копирование */
+function exportData() {
+    const data = { users: getUsers(), current: getCurrentUserPhone(), theme: localStorage.getItem('bw_theme') };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = 'wallet_backup.json'; a.click(); URL.revokeObjectURL(url);
+}
+function importData(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            setUsers(data.users || []); setCurrentUserPhone(data.current || null);
+            if (data.theme) { localStorage.setItem('bw_theme', data.theme); document.documentElement.setAttribute('data-theme', data.theme); themeSelect.value = data.theme; }
+            updateCurrentUserChip(); refreshUsers(); refreshWallet(); refreshHistory(); refreshAdmin();
+            alert('Данные импортированы');
+        } catch { alert('Ошибка импорта: некорректный файл'); }
+    };
+    reader.readAsText(file);
+}
+
+/* Инициализация бейджа */
+updateCurrentUserChip();
+</script>
+</body>
+</html>
